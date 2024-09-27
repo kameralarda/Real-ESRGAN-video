@@ -123,9 +123,9 @@ def assemble_video_with_audio(fps, video_path, output_name):
         "-map", "0:v:0",
         "-map", "1:a:0",
         "-c:a", "copy",
-        "-c:v", "libx264",
+        "-c:v", "libx265",
         "-r", str(fps),
-        "-pix_fmt", "yuv420p",
+        "-pix_fmt", "yuv420p10le",
         output_name
     ]
     print(f"Ses eklenerek video birleştiriliyor: {' '.join(cmd)}")
