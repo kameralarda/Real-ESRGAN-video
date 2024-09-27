@@ -142,9 +142,9 @@ def assemble_video_without_audio(fps, output_name):
         "ffmpeg",
         "-r", str(fps),
         "-i", os.path.join("out_frames", "frame%08d.jpg"),
-        "-c:v", "libx264",
+        "-c:v", "libx265",
         "-r", str(fps),
-        "-pix_fmt", "yuv420p",
+        "-pix_fmt", "yuv420p10le",
         output_name
     ]
     print(f"Video ses olmadan birleştiriliyor: {' '.join(cmd)}")
