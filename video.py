@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import shutil
 
 def create_directory(dir_name):
     """Klasörün var olup olmadığını kontrol eder, yoksa oluşturur."""
@@ -14,12 +15,34 @@ def create_directory(dir_name):
     else:
         print(f"Klasör zaten mevcut: {dir_name}")
 
-def get_user_input(prompt, default=None):
-    """Kullanıcıdan giriş alır, boş bırakılırsa varsayılan değeri kullanır."""
-    user_input = input(f"{prompt} [{'Varsayılan: ' + default if default else 'Zorunlu'}]: ").strip()
-    if not user_input and default is not None:
-        return default
-    return user_input
+def get_user_input(prompt, default=None, validate=None):
+    """
+    Kullanıcıdan giriş alır, boş bırakılırsa varsayılan değeri kullanır.
+    Opsiyonel olarak bir doğrulama fonksiyonu alabilir.
+    """
+    while True:
+        if default:
+            user_input = input(f"{prompt} [Varsayılan: {default}]: ").strip()
+        else:
+            user_input = input(f"{prompt}: ").strip()
+        if not user_input and default is not None:
+            user_input = default
+        if validate:
+            valid, message = validate(user_input)
+            if valid:
+                return user_input
+            else:
+                print(f"Hata: {message}")
+        else:
+            return user_input
+
+def check_ffmpeg():
+    """FFmpeg'in sistemde yüklü olup olmadığını kontrol eder."""
+    if shutil.which("ffmpeg") is None:
+        print("Hata: FFmpeg sisteminizde yüklü değil veya PATH'e eklenmemiş.")
+        sys.exit(1)
+    else:
+        print("FFmpeg bulundu.")
 
 def extract_frames(video_path):
     """FFmpeg kullanarak videodan kareleri çıkarır."""
@@ -113,7 +136,7 @@ def assemble_video_with_audio(fps, video_path, output_name):
         print(f"Video oluşturma işlemi başarısız oldu: {e}")
         sys.exit(1)
 
-def assemble_video_without_audio(fps, output_name="output.mp4"):
+def assemble_video_without_audio(fps, output_name):
     """Ses eklemeden videoyu birleştirir."""
     cmd = [
         "ffmpeg",
@@ -132,12 +155,24 @@ def assemble_video_without_audio(fps, output_name="output.mp4"):
         print(f"Video oluşturma işlemi başarısız oldu: {e}")
         sys.exit(1)
 
+def validate_video_filename(filename):
+    """Dosya adının geçerli bir video uzantısına sahip olup olmadığını kontrol eder."""
+    valid_extensions = ['.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.webm']
+    _, ext = os.path.splitext(filename)
+    if ext.lower() in valid_extensions:
+        return True, ""
+    else:
+        return False, f"Lütfen geçerli bir video uzantısı kullanın ({', '.join(valid_extensions)})."
+
 def main():
-    # 1. Klasörleri kontrol et ve oluştur
+    # 1. FFmpeg'in varlığını kontrol et
+    check_ffmpeg()
+
+    # 2. Klasörleri kontrol et ve oluştur
     create_directory("tmp_frames")
     create_directory("out_frames")
 
-    # 2. Kullanıcıdan video yolu al
+    # 3. Kullanıcıdan video yolu al
     video_path = get_user_input("İşlemek istediğiniz video yolunu girin", default="onepiece_demo.mp4")
     if not os.path.isfile(video_path):
         print(f"Video dosyası bulunamadı: {video_path}")
@@ -145,13 +180,13 @@ def main():
     else:
         print(f"Seçilen video yolu: {video_path}")
 
-    # 3. Kareleri çıkar
+    # 4. Kareleri çıkar
     extract_frames(video_path)
 
-    # 4. Realesrgan yolunu al
+    # 5. Realesrgan yolunu al
     realesrgan_path = get_user_input("Realesrgan yolunu girin", default="realesrgan-ncnn-vulkan")
     # Check if realesrgan_path is executable
-    if not shutil.which(realesrgan_path):
+    if shutil.which(realesrgan_path) is None:
         if os.path.isfile(realesrgan_path):
             # Eğer belirtilen yol bir dosya ise
             if not os.access(realesrgan_path, os.X_OK):
@@ -162,13 +197,13 @@ def main():
             sys.exit(1)
     print(f"Realesrgan yolu: {realesrgan_path}")
 
-    # 5. Realesrgan çalıştır
+    # 6. Realesrgan çalıştır
     run_realesrgan(realesrgan_path)
 
-    # 6. Video fps'sini al
+    # 7. Video fps'sini al
     fps = get_video_fps(video_path)
 
-    # 7. Kullanıcıya ses eklemek isteyip istemediğini sor
+    # 8. Kullanıcıya ses eklemek isteyip istemediğini sor
     while True:
         add_audio = input("Ses eklemek istiyor musunuz? (evet/hayır): ").strip().lower()
         if add_audio in ['evet', 'hayır']:
@@ -176,16 +211,21 @@ def main():
         else:
             print("Lütfen 'evet' veya 'hayır' olarak cevaplayın.")
 
+    # 9. Çıktı videosunun adını al (geçerli bir video uzantısı ile)
+    output_name = get_user_input(
+        "Çıktı videosunun adını girin",
+        default="output.mp4",
+        validate=validate_video_filename
+    )
+
     if add_audio == 'evet':
-        # 8. Çıktı videosunun adını sor, varsayılan output.mp4
-        output_name = get_user_input("Çıktı videosunun adını girin", default="output.mp4")
+        # 10. Ses ekleyerek videoyu oluştur
         assemble_video_with_audio(fps, video_path, output_name)
     else:
-        # 9. Ses eklemeden videoyu oluştur, varsayılan adı output.mp4
-        assemble_video_without_audio(fps, output_name="output.mp4")
+        # 11. Ses eklemeden videoyu oluştur
+        assemble_video_without_audio(fps, output_name)
 
     print("İşlem tamamlandı.")
 
 if __name__ == "__main__":
-    import shutil
     main()
