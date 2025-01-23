@@ -169,6 +169,16 @@ def main():
             input("Devam etmek için Enter'a basın...")
             return
 
+        while True:
+            scale_level = input("Ölçeklendirme seviyesi kaç olsun? (2, 3 veya 4): ")
+            if scale_level in ['2', '3', '4']:
+                scale_level = int(scale_level)
+                break
+            else:
+                print("Lütfen sadece 2, 3 veya 4 değerlerinden birini girin.")
+                input("Devam etmek için Enter'a basın...")
+                
+
         tmp_frames = video_path.parent / "tmp_frames"
         out_frames = video_path.parent / "out_frames"
 
@@ -176,7 +186,7 @@ def main():
         subprocess.run(["ffmpeg", "-i", str(video_path), "-qscale:v", "1", "-qmin", "1", "-qmax", "1", "-vsync", "0", str(tmp_frames / "frame%08d.png")], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         out_frames.mkdir(exist_ok=True)
-        subprocess.run(["realesrgan-ncnn-vulkan", "-i", str(tmp_frames), "-o", str(out_frames), "-n", "realesr-animevideov3", "-s", "2", "-f", "jpg"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(["realesrgan-ncnn-vulkan", "-i", str(tmp_frames), "-o", str(out_frames), "-n", "realesr-animevideov3", "-s", str(scale_level), "-f", "jpg"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         shutil.rmtree(tmp_frames)
 
